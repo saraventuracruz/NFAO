@@ -142,18 +142,34 @@ z0 = rand(1,nEquations);
 
 %% Question e:
 mu = 0.5;
-Q = quadratic_penalty(objFun, eqConst, mu)
-grad_q = gradient(Q, x)
-hess_q = hessian(Q, x)
+Q = quadratic_penalty(objFun, eqConst, mu) % definition of the quadratic penalty method (quadratic_penalty.m)
+grad_q = gradient(Q, x) % gradient
+hess_q = hessian(Q, x) % hessian
 
-q0 = rand(1, N);
-pure_newton(Q, grad_q, hess_q, x, q0, eps)
-
-[Q_newton, q_newton,q_iter_newton,q_err_newton] = pure_newton (Q,grad_q,hess_q, x, q0, eps);
+q0 = rand(1,N)
+%% Solve using Pure Newton's method
+[Q_newton, q_newton,q_iter_newton,q_err_newton] = pure_newton (Q,grad_q,hess_q, transpose(x), q0, eps);
 q_newton, q_iter_newton
 
+%% Solve using SR1
 gamma = 0;
-H0_q = double(subs(hess_q,x,q0)) + gamma*eye(N)
-[q_x_SR1,q_iter_SR1,q_err_SR1] = SR1 (q,grad_q,H0_q, x, q0, eps);
+H0_q = double(subs(hess_q,transpose(x),q0)) + gamma*eye(N)
+[q_x_SR1,q_iter_SR1,q_err_SR1] = SR1 (Q, grad_q, H0_q, transpose(x), q0, eps);
 q_x_SR1, q_iter_SR1
 
+%% Question f:
+mu = 0.2;
+ALag = augmented_lagrangian(lambda, objFun, eqConst, mu) %definition of the augmented lagrangian method (augmented_lagrangian.m)
+grad_aLag = gradient(ALag, x) % gradient
+hess_aLag = hessian(ALag, x) % hessian
+
+% q0 = rand(1, N+nEqConst);
+% %% Solve using Pure Newton's method
+% [ALag_newton, aLag_newton, aLag_iter_newton, aLag_err_newton] = pure_newton (ALag,grad_aLag,hess_aLag, [transpose(x) transpose(lambda)], q0, eps);
+% aLag_newton, aLag_iter_newton
+% 
+% %% Solve using SR1
+% gamma = 0;
+% H0_aLag = double(subs(hess_aLag,x,q0)) + gamma*eye(N)
+% [aLag_x_SR1,aLag_iter_SR1,aLag_err_SR1] = SR1 (ALag,grad_q,H0_q, x, q0, eps);
+% q_x_SR1, q_iter_SR1

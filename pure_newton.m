@@ -11,7 +11,7 @@ err = [];
 Xk = x0;
 while(ek>eps)
     sk = -Hk\gk;
-    xk = sk' + xk;
+    xk = transpose(sk) + xk
     Xk = [Xk;xk];
     gk_new = double(subs(gradf,x,xk));
     ek = norm(gk_new);
