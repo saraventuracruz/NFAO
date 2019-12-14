@@ -160,16 +160,16 @@ q_x_SR1, q_iter_SR1
 %% Question f:
 mu = 0.2;
 ALag = augmented_lagrangian(lambda, objFun, eqConst, mu) %definition of the augmented lagrangian method (augmented_lagrangian.m)
-grad_aLag = gradient(ALag, x) % gradient
-hess_aLag = hessian(ALag, x) % hessian
+grad_aLag = gradient(ALag, [transpose(x) transpose(lambda)]) % gradient
+hess_aLag = hessian(ALag, [transpose(x) transpose(lambda)]) % hessian
 
-% q0 = rand(1, N+nEqConst);
-% %% Solve using Pure Newton's method
-% [ALag_newton, aLag_newton, aLag_iter_newton, aLag_err_newton] = pure_newton (ALag,grad_aLag,hess_aLag, [transpose(x) transpose(lambda)], q0, eps);
-% aLag_newton, aLag_iter_newton
-% 
-% %% Solve using SR1
-% gamma = 0;
-% H0_aLag = double(subs(hess_aLag,x,q0)) + gamma*eye(N)
-% [aLag_x_SR1,aLag_iter_SR1,aLag_err_SR1] = SR1 (ALag,grad_q,H0_q, x, q0, eps);
-% q_x_SR1, q_iter_SR1
+q0 = rand(1, N+nEqConst);
+%% Solve using Pure Newton's method
+[ALag_newton, aLag_newton, aLag_iter_newton, aLag_err_newton] = pure_newton (ALag,grad_aLag,hess_aLag, [transpose(x) transpose(lambda)], q0, eps);
+aLag_newton, aLag_iter_newton
+
+%% Solve using SR1
+gamma = 0;
+H0_aLag = double(subs(hess_aLag,[transpose(x) transpose(lambda)],q0)) + gamma*eye(N+nEqConst)
+[aLag_x_SR1,aLag_iter_SR1,aLag_err_SR1] = SR1 (ALag,grad_aLag,H0_aLag, [transpose(x) transpose(lambda)], q0, eps);
+q_x_SR1, q_iter_SR1
