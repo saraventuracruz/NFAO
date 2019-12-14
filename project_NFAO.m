@@ -98,21 +98,28 @@ mu = sym('mu', [nIneqConst,1]); % definition of variable mu (set of lagrangian m
 lag = lagrangian(lambda, mu, objFun,eqConst,ineqConst) % definition of the lagrangian function (using the function defined at lagrangian.m)
 grad_lag = gradient(lag, x); % definition of the gradient of the lagrangian function
 
-kkt_system = [simplify(grad_lag); eqConst; ineqConst]; % definition of the system of KKT system
+% definition of the system of KKT system
+kkt_system = [simplify(grad_lag); eqConst; ineqConst]; 
 % for i = 1:nEqConst
 %     kkt_system = [kkt_system; lambda(i)*eqConst(i)];    
 % end
 
-%nEquations = N + 2*nEqConst; % Total number of equations on the KKT system
+%nEquations = N + 2*nEqConst; % Total number of equations on the KKT system (equality related)
 nEquations = N + nEqConst;
-kkt_conditions = kkt_system == zeros(nEquations, 1) % print the equations to screen
+kkt_conditions = kkt_system == zeros(nEquations, 1); % definition of the kkt conditions (= 0)
 
-% inequality constraints conditions:
+for i = 1:nEqConst
+    kkt_conditions = [kkt_conditions; lambda(i)*eqConst(i)==0];
+end
+
+% add the inequality constraints conditions, when there are inequality constraints:
 for i = 1:nIneqConst   
     kkt_conditions = [kkt_conditions; ineqConst(i) >= 0];
     kkt_conditions = [kkt_conditions; mu(i)*ineqConst(i) == 0];
     kkt_conditions = [kkt_conditions; mu(i)>=0]; 
 end
+
+kkt_conditions % print out the KKT conditions
 
 %% Solve the KKT system
 KKT_sol = solve(kkt_conditions, [transpose(x) transpose(lambda) transpose(mu)])
@@ -130,19 +137,19 @@ x_star,lambda_star
 
 
 %% Question d:
-y0 = rand(1,nEquations);
-[xk_newton, iter_newton, err_newton] = newton(kkt_system, y0, x, lambda, 1e-6)
+z0 = rand(1,nEquations);
+[xk_newton, iter_newton, err_newton] = newton(kkt_system, z0, x, lambda, 1e-6)
 
 %% Question e:
 mu = 0.5;
-q = quadratic_penalty(objFun, eqConst, mu)
-grad_q = gradient(q, x)
-hess_q = hessian(q, x)
+Q = quadratic_penalty(objFun, eqConst, mu)
+grad_q = gradient(Q, x)
+hess_q = hessian(Q, x)
 
 q0 = rand(1, N);
-pure_newton(q, grad_q, hess_q, x, q0, eps)
+pure_newton(Q, grad_q, hess_q, x, q0, eps)
 
-[Q_newton, q_newton,q_iter_newton,q_err_newton] = pure_newton (q,grad_q,hess_q, x, q0, eps);
+[Q_newton, q_newton,q_iter_newton,q_err_newton] = pure_newton (Q,grad_q,hess_q, x, q0, eps);
 q_newton, q_iter_newton
 
 gamma = 0;
