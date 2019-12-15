@@ -83,9 +83,9 @@ title('||graf(x_k)|| SR1')
 %% Question a :
 %% Problem definition
 
-N = 3; %problem dimension
+N = 3; % problem's dimension
 x = sym('x',  [N,1]); % definition of variable x (column vector of dimension N)
-objFun = fun2(x) % definition of the objective function (using the function defined on fun2.m)
+objFun = fun3(x) % definition of the objective function (using the function defined on fun2.m)
 eqConst = [cons1(x); cons2(x)] % definition of equality constraints (using the functions defined on cons1.m and cons2.m)
 ineqConst = []; % definition of inequality constraints
 
@@ -137,9 +137,13 @@ x_star,lambda_star
 
 
 %% Question d:
-z0 = rand(1,nEquations);
-[xk_newton, iter_newton, err_newton] = newton(kkt_system, z0, x, lambda, 1e-6)
-
+z0 = rand(nEquations, 1)
+%% Solve using Newton's method
+[xk_newton, iter_newton, err_newton] = newton(kkt_system, z0, [x; lambda], 1e-6)
+%% Solve using Broyden's method
+gamma = 0.5;
+A0 = gamma*eye(nEquations);
+[xk_broyden, iter_broyden, err_broyden] = broyden(kkt_system, z0, A0, [x; lambda], 1e-6)
 %% Question e:
 mu = 0.5;
 Q = quadratic_penalty(objFun, eqConst, mu) % definition of the quadratic penalty method (quadratic_penalty.m)
