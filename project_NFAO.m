@@ -85,7 +85,7 @@ title('||graf(x_k)|| SR1')
 
 N = 3; % problem's dimension
 x = sym('x',  [N,1]); % definition of variable x (column vector of dimension N)
-objFun = fun3(x) % definition of the objective function (using the function defined on fun2.m)
+objFun = fun2(x) % definition of the objective function (using the function defined on fun2.m)
 eqConst = [cons1(x); cons2(x)] % definition of equality constraints (using the functions defined on cons1.m and cons2.m)
 ineqConst = []; % definition of inequality constraints
 
@@ -143,16 +143,27 @@ z0 = rand(nEquations, 1)
 %% Solve using Broyden's method
 gamma = 0.5;
 A0 = gamma*eye(nEquations);
+A0 = magic(nEquations);
+A0 = rand(nEquations);
 [xk_broyden, iter_broyden, err_broyden] = broyden(kkt_system, z0, A0, [x; lambda], 1e-6)
 %% Question e:
+mu = 1:5:50;
+for i = 1:size(mu, 1)
+    Q = quadratic_penalty(objFun, eqConst, mu(i));
+    grad_q = gradient(Q, x) % gradient
+    hess_q = hessian(Q, x) % hessian
+    q0 = rand(N, 1);
+end
+
+%%
 mu = 0.5;
 Q = quadratic_penalty(objFun, eqConst, mu) % definition of the quadratic penalty method (quadratic_penalty.m)
 grad_q = gradient(Q, x) % gradient
 hess_q = hessian(Q, x) % hessian
 
-q0 = rand(1,N)
+q0 = rand(N, 1)
 %% Solve using Pure Newton's method
-[Q_newton, q_newton,q_iter_newton,q_err_newton] = pure_newton (Q,grad_q,hess_q, transpose(x), q0, eps);
+[Q_newton, q_newton,q_iter_newton,q_err_newton] = pure_newton (Q,grad_q,hess_q, x, q0, eps);
 q_newton, q_iter_newton
 
 %% Solve using SR1
