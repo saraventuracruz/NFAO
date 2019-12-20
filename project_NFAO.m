@@ -2,8 +2,10 @@
 % Computational Assignment - Version 5
 % Kilian & Sara
 
-%% define 
+%% define format
 format long
+%% Initialize figures numbering
+fig = 1;
 %% 1) Unconstrained optimization 
 %% Question a : Prove that x_star is stationary
 N   = 4; % dimension of the problem
@@ -18,7 +20,7 @@ grad_star = subs(grad_f,x,x_star) % gradf applied to x_star (= [0,0,0,0])
 %% Question b : Prove necessary first and second order optimality conditions
 hess_f = hessian(f,x) % compute the hessian matrix of f using the matlab function
 hess_star = double(subs(hess_f,x,x_star)) % hessian apllied to x_star
-eigenvalues = eig(hess_star); % eigenvalues are non negative
+eigenvalues = eig(hess_star) % eigenvalues are non negative
 % second order : hess(f) in x_star is symetric defined positive
 
 %% Question c : 
@@ -49,7 +51,7 @@ end
 eig_values
 %% Question d :
 
-x0 = rand(1, N); % random row vector of dimension N
+x0 = [0.9, 0.9, 1, 1.1]; % row vector of dimension N
 eps = 1e-6; % epsilon
 tic()
 [X_newton, x_newton,iter_newton,err_newton] = pure_newton (f,grad_f,hess_f, x, x0, eps);
@@ -60,7 +62,7 @@ elapsed_time_d = toc()
 %% Question f :
 
 tic()
-x0 = rand(1, N);
+x0 = [0.9, 0.9, 1, 1.1];
 gamma = 0;
 H0 = double(subs(hess_f,x,x0)) + gamma*eye(N);
 [X_SR1,x_SR1,iter_SR1,err_SR1] = SR1 (grad_f,H0, x, x0, eps);
@@ -68,18 +70,53 @@ x_SR1, iter_SR1
 grad_SR1 = double(subs(grad_f,x,x_SR1))
 elapsed_time_f = toc()
 
-%% Question g : 
-figure(1)
-xx = 1:iter_newton
-yy = err_newton
-plot(xx,yy,'x')
-title('||graf(x_k)|| newton')
+%% Question g : log plot
+figure(fig)
+fig = fig+1;
+xx = 1:iter_newton-1;
+yy = err_newton(xx);
+plot(xx,log(yy), 'x')
+a = polyfit(xx,log(yy),1);
+hold on
+plot(xx,a(1)*xx+a(2), 'Color',[0.3 0.3 0.3])
+title(['Newton log ||gradf(xk)|| slope = ',num2str(a(1))])
+xlabel('iterations k')
+ylabel('log ||gradf(x_k)||')
 
-figure(2)
-xx = 1:iter_SR1
-yy = err_SR1
-plot(xx,yy,'x')
-title('||graf(x_k)|| SR1')
+figure(fig)
+fig = fig+1;
+xx = 1:iter_SR1-1;
+yy = err_SR1(xx);
+plot(xx,log(yy),'x')
+b = polyfit(xx,log(yy),1)
+hold on
+plot(xx,b(1)*xx+b(2), 'Color',[0.3 0.3 0.3])
+title(['SR1 log ||gradf(xk)|| slope = ',num2str(b(1))])
+xlabel('iterations k')
+ylabel('log ||gradf(x_k)||')
+
+
+%% Question g : averaging with n different x0
+%rng(43);
+n = 20;
+variance = 0.08; %x0 close from x_star
+fitn = [0,0];
+fits = [0,0];
+for k = 1:n
+    x_star = [1,1,1,1];
+    gauss_noise = variance*randn(1,4);
+    x0 = x_star + gauss_noise;
+    H0 = double(subs(hess_f,x,x0));
+    [~,~,itN,errN] = pure_newton (f,grad_f,hess_f, x, x0, eps);
+    [~,~,itS,errS] = SR1 (grad_f,H0, x, x0, eps);
+    xn = 1:(itN-1);
+    xs = 1:(itS-1);
+    
+    fitn = fitn + polyfit(xn,log(errN(xn)),1);
+    fits = fits + polyfit(xs,log(errS(xs)),1);
+end
+R_newton = -fitn(1)/n
+R_sr1 = -fits(1)/n
 
 
 %%
@@ -127,7 +164,7 @@ end
 kkt_conditions % print out the KKT conditions
 
 %% Solve the KKT system
-KKT_sol = solve(kkt_conditions, [transpose(x) transpose(lambda) transpose(mu)])
+KKT_sol = solve(kkt_conditions, [transpose(x) transpose(lambda) transpose(mu)], 'Real', true)
 % get values 
 fieldNames = fieldnames(KKT_sol); %x1 x2 ...
 x_star = []; % to store each solution
@@ -142,16 +179,13 @@ x_star,lambda_star
 
 
 %% Question d:
-% redefine kkt_system for the current problem (drop out the conditions of
-% lambda * eqConst = 0
-kkt_system = kkt_system(1:(end-nEqConst),1)
+% solve gradient of the lagrangian in order to [x; lambda] = 0
 %% Solve using Newton's method
-z0 = randi(10, size(x,1) + size(lambda,1), 1) %random initial guess (entries are integers between 0 and 10)
-eps = 1e-6; %epsilon
-[zk_newton, iter_newton, err_newton] = newton(kkt_system, z0, [x; lambda], eps)
-% xk_newton is the concatenation of x_star and lambda_star found by
-% newton's method
-%% Solve using Broyden's method
+z0 = randi(10, size(x,1) + size(lambda,1), 1) % random initial guess (entries are integers between 0 and 10)
+eps = 1e-6; % considered zero
+[zk_newton, iter_newton, err_newton] = newton(gradient(lag, [x; lambda]), z0, [x; lambda], eps)
+% zk_newton is the concatenation of x_star and lambda_star found by newton's method
+%% Solve using Broyden's method (5 trials)
 z0Broyden = [];
 iterBroyden = [];
 zStarBroyden = [];
@@ -161,148 +195,94 @@ for i = 1:5
     eps = 1e-8; %epsilon
     A0 = rand(size(x,1) + size(lambda,1)); % generate a random squared matrix with the same dimension of the kkt system
     A0 = A0*transpose(A0); % make it positive semidefinite
-    [zk_broyden, iter_broyden, err_broyden] = broyden(kkt_system, z0, A0, [x; lambda], eps);
+    [zk_broyden, iter_broyden, err_broyden] = broyden(gradient(lag, [x;lambda]), z0, A0, [x; lambda], eps);
     iterBroyden = [iterBroyden; iter_broyden];
-    zStarBroyden = [zStarBroyden; transpose(zk_broyden)];
+    zStarBroyden = [zStarBroyden; transpose(zk_broyden)]
 end
-
-%% Print out table with results
+%% Print out table with results (Broyden's method)
 T_Broyden = table(z0Broyden, iterBroyden, zStarBroyden)
 
+%% Question e (Quadratic penalty method)
+% definition of the quadratic penalty function in quadratic_penalty.m
+x0 = rand(N, 1); % set a random initial point
+mu0 = 1; % initial mu value
+eps = 1e-6; % considered 0
+%% Quadratic penalty method using SR1 to solve the minimization problems
+[X_Q_SR1, x_Q_SR1, iter_Q_SR1, cond_HQ_SR1] = quadratic_penalty_method_SR1(x, x0, objFun, eqConst, mu0, eps)
+%% Plot the error over the iterations
+% Compute the error of each iteration
+e_k = repmat(transpose(x_star),size(X_Q_SR1,1),1)-X_Q_SR1; % vector of (x_star - x_k)
+e_Q_SR1 = vecnorm(transpose(e_k)); % compute the norm of each entry of e_k
 
-%% Question e:
-mu = 0.5;
-Q = quadratic_penalty(objFun, eqConst, mu) % definition of the quadratic penalty method (quadratic_penalty.m)
-grad_q = gradient(Q, x) % gradient
-hess_q = hessian(Q, x) % hessian
+figure(fig)
+fig = fig+1;
+xx = 1:iter_Q_SR1;
+yy = e_Q_SR1(xx);
+plot(xx,log(yy), 'x')
+a = polyfit(xx,log(yy),1);
+hold on
+plot(xx,a(1)*xx+a(2), 'Color',[0.3 0.3 0.3])
+title(['SR1 Quadratic | slope = ',num2str(a(1))])
+xlabel('iterations k')
+ylabel('log ||x_\ast-x_k||')
 
+%% Quadratic penalty method using Newton's method to solve minimization problems
+[X_Q_Newton,x_Q_Newton, iter_Q_Newton, cond_HQ_Newton] = quadratic_penalty_method_Newton(x, x0, objFun, eqConst, mu0, eps)
+%% Plot the error over the iterations
+% Compute the error of each iteration
+e_k = repmat(transpose(x_star),size(X_Q_Newton,1),1)-X_Q_Newton; % vector of (x_star - x_k)
+e_Q_Newton = vecnorm(transpose(e_k)); % compute the norm of each entry of e_k
 
-%% Solve using Pure Newton's method
-q0 = rand(1, N)
-eps = 1e-6;
-[Q_newton, q_newton,q_iter_newton,q_err_newton] = pure_newton (Q,grad_q,hess_q, transpose(x), q0, eps);
-q_newton, q_iter_newton
+figure(fig)
+fig = fig+1;
+xx = 1:iter_Q_Newton;
+yy = e_Q_Newton(xx);
+plot(xx,log(yy), 'x')
+a = polyfit(xx,log(yy),1);
+hold on
+plot(xx,a(1)*xx+a(2), 'Color',[0.3 0.3 0.3])
+title(['Newton Quadratic | slope = ',num2str(a(1))])
+xlabel('iterations k')
+ylabel('log ||x_\ast-x_k||')
 
-%% Solve using SR1
-q0 = rand(1, N)
-eps = 1e-6;
-gamma = 5;
-H0_q = double(subs(hess_q,transpose(x),q0)) + gamma*eye(N)
-[~,q_x_SR1,q_iter_SR1,q_err_SR1] = SR1 ( grad_q, H0_q, transpose(x), q0, eps);
-q_x_SR1, q_iter_SR1
+%% Question e (Augmented lagrangian method)
+x0 = rand(N, 1); % set a random initial point
+mu0 = 1; % initial mu value
+lambda0 = rand(nEqConst, 1); % set a random initial lambda
+eps = 1e-6; % considered 0
+%% Augmented lagrangian method using SR1 to solve the minimization problems
+[X_AL_SR1,x_AL_SR1, lambda_AL_SR1, iter_AL_SR1, cond_HAL_SR1] = augmented_lagrangian_method_SR1(x, x0, objFun, eqConst, mu0,lambda0, eps)
+%% Plot the error over the iterations
+% Compute the error of each iteration
+e_k = repmat(transpose(x_star),size(X_AL_SR1,1),1)-X_AL_SR1; % vector of (x_star - x_k)
+e_AL_SR1 = vecnorm(transpose(e_k)); % compute the norm of each entry of e_k
+figure(fig)
+fig = fig+1;
+xx = 1:iter_AL_SR1;
+yy = e_AL_SR1(xx);
+plot(xx,log(yy), 'x')
+a = polyfit(xx,log(yy),1);
+hold on
+plot(xx,a(1)*xx+a(2), 'Color',[0.3 0.3 0.3])
+title(['SR1 Augmented Lagrangian | slope = ',num2str(a(1))])
+xlabel('iterations k')
+ylabel('log ||x_\ast-x_k||')
 
-%% test different mu values
-q0 = rand(1, N);
-%% Solve using Pure Newton's method
-results_Q_newton = [];
-for i = -4:10
-    mu = 10^i;
-    Q = quadratic_penalty(objFun, eqConst, mu); % define the quadratic penalty function for the current mu
-    grad_q = gradient(Q, x); % gradient
-    hess_q = hessian(Q, x); % hessian
-    % Solve using pure newton's method
-    [~, q_newton, q_iter_newton, q_err_newton] = pure_newton(Q, grad_q, hess_q, transpose(x), q0, eps);
-    results_Q_newton = [results_Q_newton; [q_newton,q_iter_newton, q_err_newton(end)]];
-end
-%% Print out table with results
-mu = transpose(10.^(-4:10));
-xStarNewton = results_Q_newton(:, 1:N);
-iterNewton = results_Q_newton(:, N+1);
-errorNewton = results_Q_newton(:, N+2);
-T_Q_Newton = table(mu, xStarNewton, iterNewton, errorNewton)
-%% Solve using SR1
-results_Q_SR1 = [];
-for i = -4:2:10
-    mu = 10^i;
-    Q = quadratic_penalty(objFun, eqConst, mu); % define the quadratic penalty function for the current mu
-    grad_q = gradient(Q, x); % gradient
-    hess_q = hessian(Q, x); % hessian
-    for gamma = 0:5:10
-        H0_q = double(subs(hess_q,transpose(x),q0)) + gamma*eye(N);
-        [Q_x_SR1,q_x_SR1,q_iter_SR1,q_err_SR1] = SR1 (grad_q, H0_q, transpose(x), q0, eps);
-        results_Q_SR1 = [results_Q_SR1; [q_x_SR1, q_iter_SR1,q_err_SR1(end)]];
-    end
-end
-%% Print out table
-mu = [];
-gamma = [];
-for i = -4:2:10
-    for g = 0:5:10
-        mu = [mu; 10^i];
-        gamma = [gamma ; g];
-    end
-end
-xStarSR1 = results_Q_SR1(:, 1:N);
-iterSR1 = results_Q_SR1(:, N+1);
-errorSR1 = results_Q_SR1(:, N+2);
-T_Q_SR1 = table(mu, gamma, xStarSR1, iterSR1, errorSR1)
+%% Augmented lagrangian method using Newton's method to solve the minimization problems
+[X_AL_Newton, x_AL_Newton,lambda_AL_Newton, iter_AL_Newton, cond_HAL_Newton] = augmented_lagrangian_method_Newton(x, x0, objFun, eqConst, mu0,lambda0, eps)
+%% Plot the error over the iterations
+% Compute the error of each iteration
+e_k = repmat(transpose(x_star),size(X_AL_Newton,1),1)-X_AL_Newton; % vector of (x_star - x_k)
+e_AL_Newton = vecnorm(transpose(e_k)); % compute the norm of each entry of e_k
 
-%% Question f:
-mu = 0.2;
-ALag = augmented_lagrangian(lambda, objFun, eqConst, mu) %definition of the augmented lagrangian method (augmented_lagrangian.m)
-grad_aLag = gradient(ALag, [transpose(x) transpose(lambda)]) % gradient
-hess_aLag = hessian(ALag, [transpose(x) transpose(lambda)]) % hessian
-
-%% Solve using Pure Newton's method
-q0 = rand(1, N+nEqConst);
-eps = 1e-6;
-[ALag_newton, aLag_newton, aLag_iter_newton, aLag_err_newton] = pure_newton (ALag,grad_aLag,hess_aLag, [transpose(x) transpose(lambda)], q0, eps);
-aLag_newton, aLag_iter_newton
-
-%% Solve using SR1
-q0 = rand(1, N+nEqConst);
-eps = 1e-6;
-gamma = 0;
-H0_aLag = double(subs(hess_aLag,[transpose(x) transpose(lambda)],q0)) + gamma*eye(N+nEqConst)
-[aLag_x_SR1,aLag_iter_SR1,aLag_err_SR1] = SR1 (grad_aLag,H0_aLag, [transpose(x) transpose(lambda)], q0, eps);
-q_x_SR1, q_iter_SR1
-
-%% test different mu values
-l0 = rand(1, N+nEqConst);
-
-%% Solve using Pure Newton's method
-results_L_newton = [];
-for i = -4:10
-    mu = 10^i;
-    ALag = augmented_lagrangian(lambda, objFun, eqConst, mu); % define the augmented lagrangian for the current mu
-    grad_aLag = gradient(ALag, [transpose(x) transpose(lambda)]); % gradient
-    hess_aLag = hessian(ALag, [transpose(x) transpose(lambda)]); % hessian
-    % Solve using pure newton's method
-    [~, l_newton, l_iter_newton, l_err_newton] = pure_newton(ALag, grad_aLag, hess_aLag, [transpose(x) transpose(lambda)], l0, eps);
-    results_L_newton = [results_L_newton; [l_newton,l_iter_newton, l_err_newton(end)]];
-end
-
-%% Print out table with results
-mu = transpose(10.^(-4:10));
-xStarNewton = results_L_newton(:, 1:N+nEqConst);
-iterNewton = results_L_newton(:, N+nEqConst+1);
-errorNewton = results_L_newton(:, N+nEqConst+2);
-T_L_Newton = table(mu, xStarNewton, iterNewton, errorNewton)
-
-%% Solve using SR1
-results_L_SR1 = [];
-for i = -4:2:10
-    mu = 10^i;
-    ALag = augmented_lagrangian(lambda, objFun, eqConst, mu); % define the augmented lagrangian for the current mu
-    grad_aLag = gradient(ALag, [transpose(x) transpose(lambda)]); % gradient
-    hess_aLag = hessian(ALag, [transpose(x) transpose(lambda)]); % hessian
-    for gamma = 0:5:10
-        H0_l = double(subs(hess_aLag,[transpose(x) transpose(lambda)],l0)) + gamma*eye(N+nEqConst);
-        [L_x_SR1,l_x_SR1,l_iter_SR1,l_err_SR1] = SR1 (grad_aLag, H0_l, [transpose(x) transpose(lambda)], l0, eps);
-        results_L_SR1 = [results_L_SR1; [l_x_SR1, l_iter_SR1,l_err_SR1(end)]];
-    end
-end
-
-%% Print out table with results
-mu = [];
-gamma = [];
-for i = -4:2:10
-    for g = 0:5:10
-        mu = [mu; 10^i];
-        gamma = [gamma ; g];
-    end
-end
-xStarSR1 = results_L_SR1(:, 1:N+nEqConst);
-iterSR1 = results_L_SR1(:, N+nEqConst+1);
-errorSR1 = results_L_SR1(:, N+nEqConst+2);
-T_L_SR1 = table(mu, gamma, xStarSR1, iterSR1, errorSR1)
+figure(fig)
+fig = fig+1;
+xx = 1:iter_AL_Newton;
+yy = e_AL_Newton(xx);
+plot(xx,log(yy), 'x')
+a = polyfit(xx,log(yy),1);
+hold on
+plot(xx,a(1)*xx+a(2), 'Color',[0.3 0.3 0.3])
+title(['Newton Augmented Lagrangian | slope = ',num2str(a(1))])
+xlabel('iterations k')
+ylabel('log ||x_\ast-x_k||')
